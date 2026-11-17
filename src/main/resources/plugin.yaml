@@ -1,0 +1,21 @@
+apiVersion: plugin.halo.run/v1alpha1
+kind: Plugin
+metadata:
+  name: aplayer-backend
+spec:
+  enabled: true
+  requires: ">=2.23.0"
+  author:
+    name: lhw
+    website: https://github.com/lhw
+  logo: logo.png
+  homepage: https://github.com/lhw/plugin-aplayer-backend#readme
+  repo: https://github.com/lhw/plugin-aplayer-backend
+  issues: https://github.com/lhw/plugin-aplayer-backend/issues
+  displayName: "APlayer 音乐后端"
+  description: "解析网易云等平台歌单，将音源、封面、歌词缓存到本地，并以 APlayer 格式提供只读 API。"
+  license:
+    - name: "MIT"
+      url: "https://opensource.org/licenses/MIT"
+  settingName: aplayer-backend-settings
+  configMapName: aplayer-backend-config

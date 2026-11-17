@@ -1,0 +1,128 @@
+apiVersion: v1alpha1
+kind: Setting
+metadata:
+  name: aplayer-backend-settings
+spec:
+  forms:
+    - group: source
+      label: 歌单源
+      formSchema:
+        - $formkit: select
+          name: server
+          label: 音乐平台
+          help: 歌单所属平台，五选一。
+          value: netease
+          options:
+            - label: 网易云音乐
+              value: netease
+            - label: QQ 音乐
+              value: tencent
+            - label: 酷狗音乐
+              value: kugou
+            - label: 百度音乐
+              value: baidu
+            - label: 酷我音乐
+              value: kuwo
+        - $formkit: select
+          name: type
+          label: 资源类型
+          help: 歌单填 playlist；单曲填 song；专辑填 album。
+          value: playlist
+          options:
+            - label: 歌单 playlist
+              value: playlist
+            - label: 单曲 song
+              value: song
+            - label: 专辑 album
+              value: album
+        - $formkit: text
+          name: id
+          label: 资源 ID
+          help: 纯数字 ID，不是分享链接。例如歌单 60198。
+          value: ""
+          validation: required
+        - $formkit: secret
+          name: cookieSecretName
+          label: 平台 Cookie
+          help: 可选。需要登录态（私人歌单、会员音质）时填写，通过 Halo Secret 保存，明文不会写入配置。
+          descriptionPreset: APlayer 后端 - 平台 Cookie
+          requiredKeys:
+            - key: cookie
+              help: 对应平台的完整 Cookie 字符串
+
+    - group: quality
+      label: 音质与缓存
+      formSchema:
+        - $formkit: select
+          name: bitrate
+          label: 音质码率
+          help: 会员音质需要上方 Cookie 且账号具备相应权限。
+          value: "320"
+          options:
+            - label: 128 kbps
+              value: "128"
+            - label: 192 kbps
+              value: "192"
+            - label: 320 kbps
+              value: "320"
+        - $formkit: number
+          name: picSize
+          label: 封面尺寸（像素）
+          value: 300
+          validation: required|min:64|max:1000
+        - $formkit: switch
+          name: downloadLyrics
+          label: 缓存歌词
+          help: 关闭后播放器将没有歌词。
+          value: true
+        - $formkit: switch
+          name: downloadCover
+          label: 缓存封面
+          help: 关闭后播放器将没有封面图。
+          value: true
+
+    - group: sync
+      label: 同步策略
+      formSchema:
+        - $formkit: select
+          name: syncMode
+          label: 同步方式
+          value: manual
+          options:
+            - label: 仅手动同步
+              value: manual
+            - label: 定时同步（cron）
+              value: cron
+        - $formkit: text
+          name: cron
+          label: 定时表达式
+          help: Spring cron，秒 分 时 日 月 周。例如 0 30 3 * * * 表示每天 03:30。
+          value: "0 30 3 * * *"
+        - $formkit: switch
+          name: incremental
+          label: 增量同步
+          help: 开启后只下载尚未缓存的歌曲；关闭则每首重新下载。
+          value: true
+
+    - group: access
+      label: 访问与鉴权
+      formSchema:
+        - $formkit: switch
+          name: publicRead
+          label: 允许匿名读取播放列表
+          help: 前台播放器需要匿名访问；关闭后仅登录用户可读取。
+          value: true
+        - $formkit: text
+          name: allowOrigins
+          label: 允许的跨域来源
+          help: 逗号分隔的 Origin 白名单，留空表示不限制。例如 https://blog.example.com。
+          value: ""
+
+    - group: runtime
+      label: 运行环境
+      formSchema:
+        - $formkit: text
+          name: nodePath
+          label: Node 可执行文件路径
+          help: 可选。留空则自动探测 PATH、常见 nvm/mise 路径。例如 /usr/bin/node。
+          value: ""

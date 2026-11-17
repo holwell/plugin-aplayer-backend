@@ -1,0 +1,14 @@
+apiVersion: v1alpha1
+kind: Role
+metadata:
+  name: template-aplayer-backend-anonymous
+  labels:
+    halo.run/role-template: "true"
+    halo.run/hidden: "true"
+    rbac.authorization.halo.run/aggregate-to-anonymous: "true"
+  annotations:
+    rbac.authorization.halo.run/display-name: "APlayer 音乐后端 - 匿名只读"
+rules:
+  - apiGroups: ["api.aplayer-backend"]
+    resources: ["*"]
+    verbs: ["get", "list"]
