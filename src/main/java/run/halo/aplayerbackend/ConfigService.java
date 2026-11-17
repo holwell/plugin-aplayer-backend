@@ -27,7 +27,7 @@ public class ConfigService {
             .defaultIfEmpty(new PluginConfig.Quality(null, null, null, null));
         Mono<PluginConfig.Sync> sync = settingFetcher
             .fetch(PluginConfig.Sync.GROUP, PluginConfig.Sync.class)
-            .defaultIfEmpty(new PluginConfig.Sync(null, null, null));
+            .defaultIfEmpty(new PluginConfig.Sync(null, null, null, null));
         Mono<PluginConfig.Access> access = settingFetcher
             .fetch(PluginConfig.Access.GROUP, PluginConfig.Access.class)
             .defaultIfEmpty(new PluginConfig.Access(null, null));
@@ -57,6 +57,7 @@ public class ConfigService {
         String syncMode = nvl(sy.syncMode(), "manual");
         String cron = nvl(sy.cron(), "0 30 3 * * *");
         boolean incremental = sy.incremental() == null || sy.incremental();
+        boolean cleanupRemoved = sy.cleanupRemoved() == null || sy.cleanupRemoved();
         boolean publicRead = a.publicRead() == null || a.publicRead();
         String allowOrigins = nvl(a.allowOrigins(), "");
         String nodePath = nvl(r.nodePath(), "");
@@ -64,7 +65,7 @@ public class ConfigService {
         return new PluginConfig.All(
             new PluginConfig.Source(server, type, id, s.cookieSecretName()),
             new PluginConfig.Quality(bitrate, picSize, downloadLyrics, downloadCover),
-            new PluginConfig.Sync(syncMode, cron, incremental),
+            new PluginConfig.Sync(syncMode, cron, incremental, cleanupRemoved),
             new PluginConfig.Access(publicRead, allowOrigins),
             new PluginConfig.Runtime(nodePath)
         );

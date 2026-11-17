@@ -26,7 +26,8 @@ public final class PluginConfig {
     public record Sync(
         String syncMode,
         String cron,
-        Boolean incremental
+        Boolean incremental,
+        Boolean cleanupRemoved
     ) {
         public static final String GROUP = "sync";
     }

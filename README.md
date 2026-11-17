@@ -37,7 +37,7 @@ Handsome 等主题的播放器依赖 Typecho 的 Meting 插件路由，Halo 里�
 - 资源类型：歌单 `playlist`、单曲 `song`、专辑 `album`
 - 音质：`128 / 192 / 320` kbps（会员音质取决于 Cookie 与账号权限；以接口实际返回码率为准）
 - 缓存：音频 / 封面 / LRC 歌词字节全部本地化
-- 同步：手动触发、cron 定时、增量（只下载未缓存歌曲）、失败重试、防任务重叠
+- 同步：控制台「立即同步」按钮、cron 定时、增量（只下载未缓存歌曲）、自动清理已移除歌曲、失败重试、防任务重叠
 - 鉴权：Cookie 存入 Halo Secret（配置中只保存 Secret 名称，不明文）；API 通过 Halo RBAC 授权匿名或登录访问
 - 兼容：音频接口支持 HTTP Range，播放器可拖动进度条
 
@@ -58,6 +58,9 @@ Handsome 等主题的播放器依赖 Typecho 的 Meting 插件路由，Halo 里�
 | 同步策略 | `syncMode` | `manual`（仅手动）/ `cron`（定时） | `manual` |
 | 同步策略 | `cron` | Spring cron，秒 分 时 日 月 周，如 `0 30 3 * * *` | `0 30 3 * * *` |
 | 同步策略 | `incremental` | 增量同步：跳过已缓存歌曲 | `true` |
+| 同步策略 | `cleanupRemoved` | 同步后清理已不在歌单中的音频/封面/歌词缓存，避免缓存膨胀 | `true` |
+
+「同步策略」分组里的 **立即同步** 按钮可随时手动触发一次同步（无需等待定时任务）。修改任意设置后请先点击页面底部的「保存」，再点此按钮；同步结果会以提示（Toast）反馈。若解析结果为空（如歌单 ID 无效或 Cookie 失效），本次不会清理也不会覆盖已有播放列表，避免误删缓存。
 | 访问与鉴权 | `publicRead` | 允许匿名读取播放列表 | `true` |
 | 访问与鉴权 | `allowOrigins` | 预留：跨域来源白名单（逗号分隔） | 空 |
 | 运行环境 | `nodePath` | Node 可执行文件路径；留空自动探测 PATH、nvm、mise | 空 |
@@ -112,7 +115,7 @@ Cookie 会过期或触发风控；失效时同步会失败，更新 Secret 即�
 
 ### `POST /sync`
 
-手动触发同步（需要相应权限）。返回同步报告：`success`、`message`、`total`、`downloaded`、`skipped`、`failed`。
+手动触发同步（需要相应权限）。控制台「立即同步」按钮调用的就是此接口。返回同步报告：`success`、`message`、`total`、`downloaded`、`skipped`、`failed`、`cleaned`（`cleaned` 为本次清理的过期缓存文件数）。同步失败时返回 HTTP 409。
 
 ### 前端接入示例
 
@@ -135,9 +138,11 @@ fetch('/apis/api.aplayer-backend/v1alpha1/playlist')
 1. 从 [Releases](https://github.com/holwell/plugin-aplayer-backend/releases) 下载 `plugin-aplayer-backend-*.jar`。
 2. Halo 控制台 → 插件 → 安装插件 → 上传该 jar 并启用。
 3. 在插件设置中填入歌单 `id`（必要时配置 Cookie 与 `nodePath`）。
-4. 触发一次同步（或在 Console 等待定时任务），完成后即可读取 `/playlist`。
+4. 保存设置后，点击「同步策略」中的「立即同步」（或等待定时任务），完成后即可读取 `/playlist`。
 
 > 注意：直接把 jar 拷进 `plugins/` 目录**不会**被 Halo 加载——Halo 通过数据库中的 Plugin 记录管理插件，必须走正式安装流程。
+
+> 升级插件后请到设置页复核一遍配置：Halo 在重新注册 Setting 时可能把部分字段重置为 schema 默认值（实测 `id`、`nodePath` 会被清空）。重新填好并保存后，再点「立即同步」即可。
 
 ## 运行环境
 

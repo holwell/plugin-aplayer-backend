@@ -84,25 +84,35 @@ spec:
     - group: sync
       label: 同步策略
       formSchema:
-        - $formkit: select
-          name: syncMode
-          label: 同步方式
-          value: manual
-          options:
-            - label: 仅手动同步
+        - $formkit: verificationForm
+          action: /apis/api.aplayer-backend/v1alpha1/sync
+          label: 立即同步
+          help: 修改设置后请先保存，再点击此按钮同步；同步结果会以提示形式反馈。
+          children:
+            - $formkit: select
+              name: syncMode
+              label: 同步方式
               value: manual
-            - label: 定时同步（cron）
-              value: cron
-        - $formkit: text
-          name: cron
-          label: 定时表达式
-          help: Spring cron，秒 分 时 日 月 周。例如 0 30 3 * * * 表示每天 03:30。
-          value: "0 30 3 * * *"
-        - $formkit: switch
-          name: incremental
-          label: 增量同步
-          help: 开启后只下载尚未缓存的歌曲；关闭则每首重新下载。
-          value: true
+              options:
+                - label: 仅手动同步
+                  value: manual
+                - label: 定时同步（cron）
+                  value: cron
+            - $formkit: text
+              name: cron
+              label: 定时表达式
+              help: Spring cron，秒 分 时 日 月 周。例如 0 30 3 * * * 表示每天 03:30。
+              value: "0 30 3 * * *"
+            - $formkit: switch
+              name: incremental
+              label: 增量同步
+              help: 开启后只下载尚未缓存的歌曲；关闭则每首重新下载。
+              value: true
+            - $formkit: switch
+              name: cleanupRemoved
+              label: 清理已移除歌曲
+              help: 开启后，同步时会自动删除已不在歌单中的音频、封面和歌词缓存，避免缓存持续膨胀。
+              value: true
 
     - group: access
       label: 访问与鉴权

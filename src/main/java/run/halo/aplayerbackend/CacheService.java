@@ -62,6 +62,52 @@ public class CacheService {
         Files.createDirectories(root.resolve(LRC_DIR));
     }
 
+    /**
+     * 清理已不在歌单中的缓存文件（音频/封面/歌词）。
+     *
+     * @param pluginDir 插件工作目录
+     * @param keepIds   本次同步后需要保留的歌曲 ID 集合
+     * @return 删除的文件数量
+     */
+    public int cleanupOrphanFiles(Path pluginDir, java.util.Set<String> keepIds) throws IOException {
+        Path root = cacheRoot(pluginDir);
+        int deleted = 0;
+        String[][] dirs = {
+            {AUDIO_DIR, ".mp3"},
+            {COVER_DIR, ".jpg"},
+            {LRC_DIR, ".lrc"},
+        };
+        for (String[] dir : dirs) {
+            Path dirPath = root.resolve(dir[0]);
+            if (!Files.isDirectory(dirPath)) continue;
+            String suffix = dir[1];
+            try (var stream = Files.list(dirPath)) {
+                var toDelete = stream
+                    .filter(Files::isRegularFile)
+                    .filter(p -> !p.getFileName().toString().endsWith(".tmp"))
+                    .filter(p -> {
+                        String name = p.getFileName().toString();
+                        if (!name.endsWith(suffix)) return false;
+                        String id = name.substring(0, name.length() - suffix.length());
+                        return !keepIds.contains(id);
+                    })
+                    .toList();
+                for (Path p : toDelete) {
+                    try {
+                        Files.deleteIfExists(p);
+                        deleted++;
+                    } catch (IOException e) {
+                        log.warn("清理缓存文件失败 {}: {}", p, e.getMessage());
+                    }
+                }
+            }
+        }
+        if (deleted > 0) {
+            log.info("已清理 {} 个不在歌单中的缓存文件", deleted);
+        }
+        return deleted;
+    }
+
     /** 读取现有 manifest，不存在时返回空。 */
     public Manifest readManifest(Path pluginDir) {
         Path p = manifestPath(pluginDir);

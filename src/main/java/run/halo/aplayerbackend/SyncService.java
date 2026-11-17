@@ -36,7 +36,8 @@ public class SyncService {
         int total,
         int downloaded,
         int skipped,
-        int failed
+        int failed,
+        int cleaned
     ) {}
 
     private final WebClient webClient = WebClient.builder()
@@ -45,13 +46,13 @@ public class SyncService {
 
     public Mono<SyncReport> sync() {
         if (!running.compareAndSet(false, true)) {
-            return Mono.just(new SyncReport(false, "已有同步任务正在执行", 0, 0, 0, 0));
+            return Mono.just(new SyncReport(false, "已有同步任务正在执行", 0, 0, 0, 0, 0));
         }
         return configService.getAll()
             .flatMap(config -> {
                 String id = config.source().id();
                 if (id == null || id.isBlank()) {
-                    return Mono.just(new SyncReport(false, "未配置资源 ID", 0, 0, 0, 0));
+                    return Mono.just(new SyncReport(false, "未配置资源 ID", 0, 0, 0, 0, 0));
                 }
                 return configService.resolveCookie(config)
                     .flatMap(cookie -> {
@@ -59,15 +60,23 @@ public class SyncService {
                         try {
                             nodeBin = nodeRuntimeService.detectNode(config.runtime().nodePath());
                         } catch (IOException e) {
-                            return Mono.just(new SyncReport(false, e.getMessage(), 0, 0, 0, 0));
+                            return Mono.just(new SyncReport(false, e.getMessage(), 0, 0, 0, 0, 0));
                         }
                         return nodeRuntimeService.parse(config, cookie, nodeBin)
-                            .flatMap(result -> persist(config, result.songs()));
+                            .flatMap(result -> {
+                                if (result.songs() == null || result.songs().isEmpty()) {
+                                    // 解析为空时不清理、不覆盖 manifest，避免 Cookie 失效或接口异常时误删全部缓存
+                                    String msg = "解析结果为空，已保留原有缓存（请检查歌单 ID 与 Cookie 是否有效）";
+                                    log.warn(msg);
+                                    return Mono.just(new SyncReport(false, msg, 0, 0, 0, 0, 0));
+                                }
+                                return persist(config, result.songs());
+                            });
                     });
             })
             .onErrorResume(e -> {
                 log.error("同步失败: {}", e.getMessage(), e);
-                return Mono.just(new SyncReport(false, "同步失败: " + e.getMessage(), 0, 0, 0, 0));
+                return Mono.just(new SyncReport(false, "同步失败: " + e.getMessage(), 0, 0, 0, 0, 0));
             })
             .doFinally(sig -> running.set(false));
     }
@@ -80,7 +89,7 @@ public class SyncService {
         }).subscribeOn(Schedulers.boundedElastic()).flatMap(ignored -> {
 
             List<CacheService.Entry> entries = new ArrayList<>();
-            int[] counts = {0, 0, 0}; // downloaded, skipped, failed
+            int[] counts = {0, 0, 0, 0}; // downloaded, skipped, failed, cleaned
 
             return Flux.fromIterable(songs)
                 .concatMap(song -> {
@@ -138,14 +147,27 @@ public class SyncService {
                     }).doOnNext(entries::add);
                 })
                 .then(Mono.fromCallable(() -> {
+                    // 清理已不在歌单中的缓存文件，避免缓存随歌单变更持续膨胀
+                    if (config.sync().cleanupRemoved()) {
+                        java.util.Set<String> keepIds = new java.util.HashSet<>();
+                        for (NodeRuntimeService.ParsedSong s : songs) {
+                            keepIds.add(safeName(s.id()));
+                        }
+                        try {
+                            counts[3] = cacheService.cleanupOrphanFiles(pluginDir, keepIds);
+                        } catch (Exception e) {
+                            log.warn("清理过期缓存失败（不影响本次同步）: {}", e.getMessage());
+                        }
+                    }
+
                     CacheService.Manifest manifest = new CacheService.Manifest(
                         config.source().server(), config.source().type(), config.source().id(),
                         java.time.Instant.now().toString(), entries);
                     cacheService.writeManifest(pluginDir, manifest);
-                    String msg = String.format("同步完成：共 %d 首，下载 %d，跳过 %d，失败 %d",
-                        songs.size(), counts[0], counts[1], counts[2]);
+                    String msg = String.format("同步完成：共 %d 首，下载 %d，跳过 %d，失败 %d，清理 %d",
+                        songs.size(), counts[0], counts[1], counts[2], counts[3]);
                     log.info(msg);
-                    return new SyncReport(true, msg, songs.size(), counts[0], counts[1], counts[2]);
+                    return new SyncReport(true, msg, songs.size(), counts[0], counts[1], counts[2], counts[3]);
                 }).subscribeOn(Schedulers.boundedElastic()));
         });
     }
